@@ -14,7 +14,7 @@ pub(super) fn midi_thread(
             MidiCommand::SetMidiPort(port) => {
                 connection.take();
 
-                let Ok(midi_in) = midir::MidiInput::new("krenic_engine") else {
+                let Ok(midi_in) = midir::MidiInput::new("kadent_engine") else {
                     eprintln!("Failed to initialize MIDI input");
                     continue;
                 };
@@ -22,7 +22,7 @@ pub(super) fn midi_thread(
                 let prod = Arc::clone(&producer);
                 match midi_in.connect(
                     &port,
-                    "krenic_input",
+                    "kadent_input",
                     move |_, message, _| {
                         push_midi_event(message, &prod);
                     },

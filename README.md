@@ -1,3 +1,3 @@
-# Krenic Engine
+# Kadent Engine
 
-An audio engine developed for Krenic DAW.
+An audio engine developed for Kadent DAW.
