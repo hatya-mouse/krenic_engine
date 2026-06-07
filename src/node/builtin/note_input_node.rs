@@ -59,7 +59,8 @@ impl Node for NoteInputNode {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Copy the entire input to the output
-                copy_nonoverlapping(*input, *output, self.data_type.size);
+                // Divide by the size of a single Voice to get the number of Voice entries
+                copy_nonoverlapping(*input, *output, self.data_type.size / size_of::<Voice>());
             }
         }
     }
