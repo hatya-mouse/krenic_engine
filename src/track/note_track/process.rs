@@ -53,6 +53,69 @@ impl NoteTrack {
             }
         }
     }
+
+    // --- PREPARATION ---
+
+    /// Retrieves the notes from the regions and converts them to events.
+    fn retrieve_and_register_notes(&mut self, tempo_map: &TempoMap) {
+        for region in self.regions.values() {
+            let region_end = region.start + region.duration;
+
+            // Calculate the start sample of the region
+            for note in region.notes.values() {
+                let note_end = note.start + note.duration;
+
+                // Calculate the start and end sample of the note in the entire track
+                let absolute_note_start = region.start + note.start;
+                let absolute_note_end = region.start + note_end;
+
+                // Skip the note if it is outside the region
+                // Skip if absolute_note_start equals region_end to prevent NOTE OFF event
+                // from occuring at the same time as the NOTE ON
+                if absolute_note_start >= region_end || absolute_note_end < region.start {
+                    continue;
+                }
+
+                // Clamp the start and the end beats by the region start and the end
+                let clamped_note_start = absolute_note_start.max(region.start);
+                let clamped_note_end = absolute_note_end.min(region_end);
+
+                // Convert the start and end beats to sampels
+                let absolute_start_sample = tempo_map.beats_to_samples(clamped_note_start);
+                let absolute_end_sample = tempo_map.beats_to_samples(clamped_note_end);
+
+                // Add the note start and end event to the events
+                self.events.push(VoiceEvent::new(
+                    absolute_start_sample,
+                    note.pitch,
+                    note.velocity,
+                    true,
+                ));
+                self.events.push(VoiceEvent::new(
+                    absolute_end_sample,
+                    note.pitch,
+                    note.velocity,
+                    false,
+                ));
+            }
+        }
+    }
+
+    /// Initializes the voices.
+    fn init_voices(&mut self) {
+        // Initialize the voice buffer
+        self.voice_buffer =
+            vec![Voice::default(); self.audio_ctx.buffer_size * self.audio_ctx.max_voices];
+        // Clear the active voices and the free voices
+        self.active_voices.clear();
+        self.free_voices = (0..self.audio_ctx.max_voices).collect();
+        self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
+    }
+
+    /// Initializes the local buffer based on the buffer size.
+    fn init_local_buffer(&mut self) {
+        self.local_buffer = vec![0.0; self.audio_ctx.buffer_size];
+    }
 }
 
 impl Track for NoteTrack {
@@ -126,60 +189,15 @@ impl Track for NoteTrack {
         // Clear the old events
         self.events.clear();
 
-        // Retrieve the notes from the regions in the track
-        for region in self.regions.values() {
-            let region_end = region.start + region.duration;
-
-            // Calculate the start sample of the region
-            for note in region.notes.values() {
-                let note_end = note.start + note.duration;
-
-                // Calculate the start and end sample of the note in the entire track
-                let absolute_note_start = region.start + note.start;
-                let absolute_note_end = region.start + note_end;
-
-                // Skip the note if it is outside the region
-                // Skip if absolute_note_start equals region_end to prevent NOTE OFF event
-                // from occuring at the same time as the NOTE ON
-                if absolute_note_start >= region_end || absolute_note_end < region.start {
-                    continue;
-                }
-
-                // Clamp the start and the end beats by the region start and the end
-                let clamped_note_start = absolute_note_start.max(region.start);
-                let clamped_note_end = absolute_note_end.min(region_end);
-
-                // Convert the start and end beats to sampels
-                let absolute_start_sample = tempo_map.beats_to_samples(clamped_note_start);
-                let absolute_end_sample = tempo_map.beats_to_samples(clamped_note_end);
-
-                // Add the note start and end event to the events
-                self.events.push(VoiceEvent::new(
-                    absolute_start_sample,
-                    note.pitch,
-                    note.velocity,
-                    true,
-                ));
-                self.events.push(VoiceEvent::new(
-                    absolute_end_sample,
-                    note.pitch,
-                    note.velocity,
-                    false,
-                ));
-            }
-        }
-
+        // Retrieve the notes from the regions and convert them to events
+        self.retrieve_and_register_notes(tempo_map);
         // Sort the events
         self.events.sort_unstable_by_key(|e| e.sample_index);
 
-        // Initialize the voice buffer
-        self.voice_buffer =
-            vec![Voice::default(); self.audio_ctx.buffer_size * self.audio_ctx.max_voices];
-
         // Initialize the voices
-        self.active_voices.clear();
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
-        self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
+        self.init_voices();
+        // Initialize the local buffer
+        self.init_local_buffer();
 
         // Prepare the graph
         self.graph.prepare()
