@@ -59,7 +59,7 @@ impl Mixer {
                 track.process_to_local_buffer(is_playing, playhead);
             });
 
-        // Add the output of each track to the main output buffer
+        // Add the output of each tracks to the main output buffer
         for track in self.project.tracks.values() {
             for (out_sample, track_sample) in output.iter_mut().zip(track.get_local_buffer()) {
                 *out_sample += track_sample;
