@@ -1,3 +1,5 @@
+use std::ptr::copy_nonoverlapping;
+
 use crate::{
     data_types::Voice,
     mixer::TempoMap,
@@ -106,7 +108,7 @@ impl NoteTrack {
         // Copy from the last voices
         if local_sample == 0 && !self.last_voices.is_empty() {
             unsafe {
-                std::ptr::copy_nonoverlapping(
+                copy_nonoverlapping(
                     self.last_voices.as_ptr(),
                     self.voice_buffer.as_mut_ptr(),
                     max_voices,
@@ -119,7 +121,7 @@ impl NoteTrack {
         if local_sample > 0 {
             let previous = (local_sample - 1) * max_voices;
             unsafe {
-                std::ptr::copy_nonoverlapping(
+                copy_nonoverlapping(
                     self.voice_buffer[previous..].as_ptr(),
                     self.voice_buffer[current..].as_mut_ptr(),
                     max_voices,
